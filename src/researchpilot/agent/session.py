@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import os
+
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 
@@ -236,22 +238,53 @@ class CredentialStore:
         return credentials
 
 
-def env_credentials() -> Credentials | None:
-    """服务端 `.env` 里配置的兜底凭据（自托管单用户场景）。"""
+def _live_llm_settings() -> tuple[str, str, str, str]:
+    """按「Secrets → 环境变量 → 启动时快照」的顺序取模型配置。
+
+    `config.LLM` 是导入时固化的快照，而云端（Streamlit Community Cloud）
+    的 Secrets 可能在进程启动之后才写入。这里每次调用都重新读一遍，
+    使「在控制台补填 Key」可以立即生效，无需重启。
+    本地运行时 st.secrets 不存在，自然退回到环境变量。
+    """
     from ..config import LLM
 
-    if not LLM.available:
+    def pick(name: str, fallback: str) -> str:
+        try:
+            import streamlit as st
+
+            value = st.secrets.get(name)  # type: ignore[union-attr]
+            if value:
+                return str(value).strip()
+        except Exception:  # noqa: BLE001 - 无 Streamlit 运行时或未配置
+            pass
+        raw = os.environ.get(name, "")
+        if raw.strip():
+            return raw.strip()
+        return (fallback or "").strip()
+
+    return (
+        pick("LLM_PROVIDER", LLM.provider),
+        pick("LLM_BASE_URL", LLM.base_url),
+        pick("LLM_MODEL", LLM.model),
+        pick("LLM_API_KEY", LLM.api_key),
+    )
+
+
+def env_credentials() -> Credentials | None:
+    """服务端配置的兜底凭据（自托管单用户 / 云端 Secrets 场景）。"""
+    provider, base_url_raw, model, api_key = _live_llm_settings()
+    if not (api_key and base_url_raw and model):
         return None
     try:
-        base_url = pv.validate_base_url(LLM.base_url, allow_custom=True)
+        base_url = pv.validate_base_url(base_url_raw, allow_custom=True)
     except pv.LLMConfigError:
         return None
     return Credentials(
-        provider=(LLM.provider or pv.DEFAULT_PROVIDER).strip().lower(),
+        provider=(provider or pv.DEFAULT_PROVIDER).strip().lower(),
         base_url=base_url,
-        model=LLM.model.strip(),
+        model=model.strip(),
         timeout=env_timeout(),
-        api_key=LLM.api_key.strip(),
+        api_key=api_key.strip(),
         source="env",
     )
 
