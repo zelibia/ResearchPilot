@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://researchpilot.local/schema/summary-events-v1.json",
+  "title": "ResearchPilot Summary Event v1",
+  "type": "object",
+  "required": [
+    "protocolVersion",
+    "eventId",
+    "sequence",
+    "type",
+    "projectId",
+    "summaryId",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "rp.summary.v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": {
+      "enum": [
+        "summary_generated",
+        "revision_switch",
+        "summary_updated",
+        "generate_progress",
+        "generate_failed",
+        "summary_confirmed",
+        "summary_evidence_clicked"
+      ]
+    },
+    "projectId": { "type": "string", "minLength": 1 },
+    "summaryId": { "type": "string", "minLength": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "summary_generated" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["runId", "revisionId", "revisionNo", "mode", "status"],
+            "properties": {
+              "runId": { "type": "string", "minLength": 1 },
+              "revisionId": { "type": "string", "minLength": 1 },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "mode": { "enum": ["independent", "incremental"] },
+              "status": { "enum": ["candidate", "official"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "revision_switch" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["fromRevisionNo", "toRevisionNo", "mode", "becameCurrent"],
+            "properties": {
+              "fromRevisionNo": { "type": ["integer", "null"], "minimum": 1 },
+              "toRevisionNo": { "type": "integer", "minimum": 1 },
+              "mode": { "enum": ["view", "compare"] },
+              "becameCurrent": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "summary_updated" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "revisionId",
+              "revisionNo",
+              "baseRevisionNo",
+              "source",
+              "changedSectionIds"
+            ],
+            "properties": {
+              "revisionId": { "type": "string", "minLength": 1 },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "baseRevisionNo": { "type": ["integer", "null"], "minimum": 0 },
+              "source": {
+                "enum": ["ai", "manual", "rollback", "legacy", "migration"]
+              },
+              "changedSectionIds": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "generate_progress" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "runId",
+              "summaryId",
+              "status",
+              "stage",
+              "completedUnits",
+              "totalUnits",
+              "message"
+            ],
+            "properties": {
+              "runId": { "type": "string", "minLength": 1 },
+              "summaryId": { "type": "string", "minLength": 1 },
+              "status": {
+                "enum": ["queued", "running", "partial", "succeeded", "failed", "cancelled"]
+              },
+              "stage": {
+                "enum": [
+                  "scope_resolved",
+                  "sources_loaded",
+                  "evidence_packed",
+                  "model_running",
+                  "evidence_verified",
+                  "diffing_base",
+                  "candidate_saved"
+                ]
+              },
+              "completedUnits": { "type": ["integer", "null"], "minimum": 0 },
+              "totalUnits": { "type": ["integer", "null"], "minimum": 0 },
+              "message": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "generate_failed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["runId", "code", "message", "partialCandidateId"],
+            "properties": {
+              "runId": { "type": "string", "minLength": 1 },
+              "code": {
+                "enum": [
+                  "SCOPE_EMPTY",
+                  "SCOPE_INVALID_DOCUMENT",
+                  "INCREMENTAL_BASE_REQUIRED",
+                  "BASE_REVISION_NOT_OFFICIAL",
+                  "BASE_REVISION_MISMATCH",
+                  "AI_NOT_CONNECTED",
+                  "AI_TIMEOUT",
+                  "AI_RATE_LIMIT",
+                  "AI_AUTH_FAILED",
+                  "AI_BAD_JSON",
+                  "AI_SCHEMA_INVALID",
+                  "EVIDENCE_VALIDATION_FAILED",
+                  "REVISION_CONFLICT",
+                  "SUMMARY_NOT_FOUND",
+                  "REVISION_NOT_FOUND",
+                  "CANDIDATE_REQUIRED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": { "type": "string" },
+              "partialCandidateId": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "summary_confirmed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["revisionId", "revisionNo", "confirmedBy"],
+            "properties": {
+              "revisionId": { "type": "string", "minLength": 1 },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "confirmedBy": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "summary_evidence_clicked" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["summaryId", "revisionNo", "sectionId", "evidence"],
+            "properties": {
+              "summaryId": { "type": "string", "minLength": 1 },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "sectionId": { "type": "string", "minLength": 1 },
+              "evidence": { "$ref": "#/$defs/evidence" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": [
+        "id",
+        "evidenceToken",
+        "documentId",
+        "outlineNodeId",
+        "annotationId",
+        "claimId",
+        "anchor",
+        "quote",
+        "sourceLabel",
+        "evidenceStatus"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "evidenceToken": { "type": "string", "minLength": 1 },
+        "documentId": { "type": "string", "minLength": 1 },
+        "outlineNodeId": { "type": ["string", "null"] },
+        "annotationId": { "type": ["string", "null"] },
+        "claimId": { "type": ["string", "null"] },
+        "anchor": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "P0-03_reader_events.schema.json#/$defs/anchor" }
+          ]
+        },
+        "quote": { "type": "string" },
+        "sourceLabel": { "type": "string" },
+        "evidenceStatus": {
+          "enum": ["exact", "partial", "none", "insufficient"]
+        }
+      }
+    }
+  }
+}

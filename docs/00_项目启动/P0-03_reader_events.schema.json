@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://researchpilot.local/schema/reader-events-v1.json",
+  "title": "ResearchPilot PDF.js Reader Event v1",
+  "type": "object",
+  "required": [
+    "protocolVersion",
+    "eventId",
+    "sequence",
+    "type",
+    "documentId",
+    "fileAssetId",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "rp.reader.v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": {
+      "enum": [
+        "load_state_changed",
+        "text_selected",
+        "viewport_changed",
+        "zoom_changed",
+        "anchor_resolved",
+        "search_state_changed",
+        "thumbnail_selected",
+        "annotation_clicked",
+        "ocr_required",
+        "reader_error"
+      ]
+    },
+    "documentId": { "type": "string", "minLength": 1 },
+    "fileAssetId": { "type": "string", "minLength": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "load_state_changed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["state", "progress", "message", "capabilities"],
+            "properties": {
+              "state": {
+                "enum": [
+                  "idle",
+                  "loading_document",
+                  "detecting_text_layer",
+                  "rendering_first_page",
+                  "ready",
+                  "ocr_pending",
+                  "png_fallback",
+                  "reloading_after_ocr",
+                  "error"
+                ]
+              },
+              "progress": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "message": { "type": "string" },
+              "capabilities": { "$ref": "#/$defs/capabilities" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "text_selected" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["selection"],
+            "properties": {
+              "selection": { "$ref": "#/$defs/textSelection" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "viewport_changed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "pageIndex",
+              "pageLabel",
+              "pageScrollRatio",
+              "documentScrollRatio",
+              "visiblePageIndices",
+              "activeOutlineNodeId"
+            ],
+            "properties": {
+              "pageIndex": { "type": "integer", "minimum": 0 },
+              "pageLabel": { "type": "string" },
+              "pageScrollRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+              "documentScrollRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+              "visiblePageIndices": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "activeOutlineNodeId": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "zoom_changed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "mode",
+              "scale",
+              "minScale",
+              "maxScale",
+              "containerWidth",
+              "containerHeight"
+            ],
+            "properties": {
+              "mode": { "enum": ["custom", "fit_width", "fit_page"] },
+              "scale": { "type": "number", "minimum": 0.25, "maximum": 6 },
+              "minScale": { "type": "number", "minimum": 0.25 },
+              "maxScale": { "type": "number", "maximum": 8 },
+              "containerWidth": { "type": "number", "minimum": 0 },
+              "containerHeight": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "anchor_resolved" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "requestedAnchor",
+              "resolvedPageIndex",
+              "strategy",
+              "matchStatus",
+              "rects",
+              "reason",
+              "highlightRendered"
+            ],
+            "properties": {
+              "requestedAnchor": { "$ref": "#/$defs/anchor" },
+              "resolvedPageIndex": { "type": "integer", "minimum": 0 },
+              "strategy": {
+                "enum": [
+                  "char_offset_and_quote",
+                  "quote_search",
+                  "normalized_rect",
+                  "page_only",
+                  "none"
+                ]
+              },
+              "matchStatus": {
+                "enum": ["exact", "partial", "none", "no_text_layer", "out_of_range"]
+              },
+              "rects": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/normalizedRect" }
+              },
+              "reason": { "type": "string" },
+              "highlightRendered": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "search_state_changed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["query", "status", "total", "currentIndex", "matches", "errorMessage"],
+            "properties": {
+              "query": { "type": "string" },
+              "status": { "enum": ["idle", "indexing", "searching", "done", "failed"] },
+              "total": { "type": "integer", "minimum": 0 },
+              "currentIndex": { "type": "integer", "minimum": 0 },
+              "matches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "matchIndex",
+                    "pageIndex",
+                    "charStart",
+                    "charEnd",
+                    "quote",
+                    "rects",
+                    "matchStatus"
+                  ],
+                  "properties": {
+                    "matchIndex": { "type": "integer", "minimum": 0 },
+                    "pageIndex": { "type": "integer", "minimum": 0 },
+                    "charStart": { "type": "integer", "minimum": 0 },
+                    "charEnd": { "type": "integer", "minimum": 0 },
+                    "quote": { "type": "string" },
+                    "rects": {
+                      "type": "array",
+                      "items": { "$ref": "#/$defs/normalizedRect" }
+                    },
+                    "matchStatus": {
+                      "enum": ["exact", "partial", "none", "no_text_layer", "out_of_range"]
+                    }
+                  }
+                }
+              },
+              "errorMessage": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "thumbnail_selected" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["pageIndex"],
+            "properties": {
+              "pageIndex": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "annotation_clicked" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["annotationId"],
+            "properties": {
+              "annotationId": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "ocr_required" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["reason", "sampledPages", "detectedCharacters"],
+            "properties": {
+              "reason": { "enum": ["no_text_layer", "low_text_coverage"] },
+              "sampledPages": { "type": "integer", "minimum": 1 },
+              "detectedCharacters": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "reader_error" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["code", "message", "recoverable"],
+            "properties": {
+              "code": {
+                "enum": [
+                  "PDF_LOAD_FAILED",
+                  "PDF_PASSWORD_REQUIRED",
+                  "PDF_INVALID",
+                  "PDF_RANGE_REQUEST_FAILED",
+                  "WORKER_LOAD_FAILED",
+                  "TEXT_LAYER_FAILED",
+                  "SEARCH_FAILED",
+                  "ANCHOR_FAILED",
+                  "OCR_REQUIRED",
+                  "RENDER_FAILED"
+                ]
+              },
+              "message": { "type": "string" },
+              "recoverable": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "normalizedRect": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "minimum": 0, "maximum": 1 },
+        "height": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "charPosition": {
+      "type": "object",
+      "required": ["pageIndex", "charOffset", "x", "y"],
+      "properties": {
+        "pageIndex": { "type": "integer", "minimum": 0 },
+        "charOffset": { "type": "integer", "minimum": 0 },
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "required": [
+        "pageIndex",
+        "quote",
+        "charStart",
+        "charEnd",
+        "rects",
+        "pageViewBox",
+        "textSource",
+        "textHash"
+      ],
+      "properties": {
+        "pageIndex": { "type": "integer", "minimum": 0 },
+        "quote": { "type": "string" },
+        "charStart": { "type": "integer", "minimum": 0 },
+        "charEnd": { "type": "integer", "minimum": 0 },
+        "rects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/normalizedRect" }
+        },
+        "pageViewBox": {
+          "type": "object",
+          "required": ["width", "height", "rotation"],
+          "properties": {
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 },
+            "rotation": { "type": "integer" }
+          }
+        },
+        "textSource": { "enum": ["pdf_text", "ocr"] },
+        "textHash": { "type": "string" }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "documentId",
+        "fileAssetId",
+        "start",
+        "end",
+        "quote",
+        "segments",
+        "matchStatus",
+        "coordinateVersion",
+        "createdAt"
+      ],
+      "properties": {
+        "protocolVersion": { "const": "rp.reader.v1" },
+        "anchorId": { "type": "string" },
+        "documentId": { "type": "string" },
+        "fileAssetId": { "type": "string" },
+        "start": { "$ref": "#/$defs/charPosition" },
+        "end": { "$ref": "#/$defs/charPosition" },
+        "quote": { "type": "string" },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/segment" }
+        },
+        "matchStatus": {
+          "enum": ["exact", "partial", "none", "no_text_layer", "out_of_range"]
+        },
+        "coordinateVersion": { "const": "page-normalized-v1" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "textSelection": {
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "selectionId",
+        "documentId",
+        "fileAssetId",
+        "text",
+        "granularity",
+        "direction",
+        "start",
+        "end",
+        "segments",
+        "pageViewBox",
+        "createdAt"
+      ],
+      "properties": {
+        "protocolVersion": { "const": "rp.reader.v1" },
+        "selectionId": { "type": "string" },
+        "documentId": { "type": "string" },
+        "fileAssetId": { "type": "string" },
+        "text": { "type": "string" },
+        "granularity": {
+          "enum": ["character", "word", "sentence", "paragraph", "custom"]
+        },
+        "direction": { "enum": ["forward", "backward"] },
+        "start": { "$ref": "#/$defs/charPosition" },
+        "end": { "$ref": "#/$defs/charPosition" },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/segment" }
+        },
+        "pageViewBox": {
+          "type": "object",
+          "required": ["width", "height", "rotation"],
+          "properties": {
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 },
+            "rotation": { "type": "integer" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": [
+        "textLayer",
+        "textSource",
+        "canSelectText",
+        "canSearchText",
+        "canResolveQuoteAnchor",
+        "canResolveRectAnchor",
+        "canRenderAnnotations",
+        "fallbackMode"
+      ],
+      "properties": {
+        "textLayer": { "enum": ["available", "missing", "partial"] },
+        "textSource": { "enum": ["pdf_text", "ocr", "none"] },
+        "canSelectText": { "type": "boolean" },
+        "canSearchText": { "type": "boolean" },
+        "canResolveQuoteAnchor": { "type": "boolean" },
+        "canResolveRectAnchor": { "type": "boolean" },
+        "canRenderAnnotations": { "type": "boolean" },
+        "fallbackMode": { "enum": ["none", "server_png"] }
+      }
+    }
+  }
+}

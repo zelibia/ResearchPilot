@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://researchpilot.local/schema/annotation-events-v1.json",
+  "title": "ResearchPilot Annotation Event v1",
+  "type": "object",
+  "required": [
+    "protocolVersion",
+    "eventId",
+    "sequence",
+    "type",
+    "documentId",
+    "fileAssetId",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "rp.annotation.v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": {
+      "enum": [
+        "annotation_created",
+        "annotation_updated",
+        "annotation_deleted",
+        "annotation_restored",
+        "annotation_sidebar_located",
+        "annotation_batch_changed"
+      ]
+    },
+    "documentId": { "type": "string", "minLength": 1 },
+    "fileAssetId": { "type": "string", "minLength": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "annotation_created" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["annotation", "selectionId"],
+            "properties": {
+              "annotation": { "$ref": "#/$defs/annotation" },
+              "selectionId": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "annotation_updated" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["annotation", "changedFields"],
+            "properties": {
+              "annotation": { "$ref": "#/$defs/annotation" },
+              "changedFields": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "enum": ["comment", "type", "color"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "annotation_deleted" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["annotationId", "deletedAt"],
+            "properties": {
+              "annotationId": { "type": "string", "minLength": 1 },
+              "deletedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "annotation_restored" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["annotation"],
+            "properties": {
+              "annotation": { "$ref": "#/$defs/annotation" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "annotation_sidebar_located" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["annotationId", "anchorResolveResult"],
+            "properties": {
+              "annotationId": { "type": "string", "minLength": 1 },
+              "anchorResolveResult": {
+                "type": "object",
+                "required": [
+                  "resolvedPageIndex",
+                  "strategy",
+                  "matchStatus",
+                  "rects",
+                  "reason",
+                  "highlightRendered"
+                ],
+                "properties": {
+                  "resolvedPageIndex": { "type": "integer", "minimum": 0 },
+                  "strategy": {
+                    "enum": [
+                      "char_offset_and_quote",
+                      "quote_search",
+                      "normalized_rect",
+                      "page_only",
+                      "none"
+                    ]
+                  },
+                  "matchStatus": {
+                    "enum": ["exact", "partial", "none", "no_text_layer", "out_of_range"]
+                  },
+                  "rects": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/normalizedRect" }
+                  },
+                  "reason": { "type": "string" },
+                  "highlightRendered": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "annotation_batch_changed" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["batchId", "action", "annotationIds"],
+            "properties": {
+              "batchId": { "type": "string", "minLength": 1 },
+              "action": { "enum": ["delete", "set_color"] },
+              "annotationIds": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "normalizedRect": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "minimum": 0, "maximum": 1 },
+        "height": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "required": [
+        "id",
+        "documentId",
+        "fileId",
+        "type",
+        "quote",
+        "commentMarkdown",
+        "color",
+        "pageIndex",
+        "pageLabel",
+        "textSource",
+        "textHash",
+        "charStart",
+        "charEnd",
+        "rects",
+        "selector",
+        "sortIndex",
+        "anchorStatus",
+        "authorId",
+        "updatedBy",
+        "deletedBy",
+        "source",
+        "readOnly",
+        "externalId",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "deletedAt"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "documentId": { "type": "string", "minLength": 1 },
+        "fileId": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": ["highlight", "underline", "strikeout", "note", "region"]
+        },
+        "quote": { "type": "string" },
+        "commentMarkdown": { "type": "string" },
+        "color": {
+          "type": "string",
+          "pattern": "^$|^#[0-9a-fA-F]{6}$"
+        },
+        "pageIndex": { "type": "integer", "minimum": 0 },
+        "pageLabel": { "type": "string" },
+        "textSource": { "enum": ["pdf_text", "ocr"] },
+        "textHash": { "type": "string" },
+        "charStart": { "type": ["integer", "null"], "minimum": 0 },
+        "charEnd": { "type": ["integer", "null"], "minimum": 0 },
+        "rects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/normalizedRect" }
+        },
+        "selector": { "type": "object" },
+        "sortIndex": { "type": "string" },
+        "anchorStatus": {
+          "enum": ["exact", "partial", "none", "no_text_layer", "out_of_range"]
+        },
+        "authorId": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "deletedBy": { "type": "string" },
+        "source": { "enum": ["user", "external_pdf", "ai_suggested", "legacy"] },
+        "readOnly": { "type": "boolean" },
+        "externalId": { "type": "string" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "legacyPayload": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "deletedAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://researchpilot.local/schema/outline-events-v1.json",
+  "title": "ResearchPilot Outline Event v1",
+  "type": "object",
+  "required": [
+    "protocolVersion",
+    "eventId",
+    "sequence",
+    "type",
+    "documentId",
+    "outlineId",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "rp.outline.v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": {
+      "enum": [
+        "outline_node_clicked",
+        "outline_updated",
+        "revision_switch",
+        "ai_regenerate_request",
+        "outline_generation_state",
+        "outline_merge_ready",
+        "outline_progress_updated"
+      ]
+    },
+    "documentId": { "type": "string", "minLength": 1 },
+    "outlineId": { "type": "string", "minLength": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "outline_node_clicked" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "nodeId",
+              "revisionNo",
+              "anchor",
+              "requestedReaderCommandSeq"
+            ],
+            "properties": {
+              "nodeId": { "type": "string", "minLength": 1 },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "anchor": {
+                "oneOf": [
+                  { "type": "null" },
+                  { "$ref": "P0-03_reader_events.schema.json#/$defs/anchor" }
+                ]
+              },
+              "requestedReaderCommandSeq": {
+                "type": ["integer", "null"],
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "outline_updated" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "revisionId",
+              "revisionNo",
+              "baseRevisionNo",
+              "source",
+              "changedNodeIds",
+              "changeSummary"
+            ],
+            "properties": {
+              "revisionId": { "type": "string", "minLength": 1 },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "baseRevisionNo": { "type": ["integer", "null"], "minimum": 0 },
+              "source": {
+                "enum": ["manual", "ai", "ai_merge", "rollback", "legacy", "migration"]
+              },
+              "changedNodeIds": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "changeSummary": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "revision_switch" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["fromRevisionNo", "toRevisionNo", "mode", "becameCurrent"],
+            "properties": {
+              "fromRevisionNo": { "type": ["integer", "null"], "minimum": 1 },
+              "toRevisionNo": { "type": "integer", "minimum": 1 },
+              "mode": { "enum": ["compare", "view"] },
+              "becameCurrent": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "ai_regenerate_request" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["baseRevisionNo", "promptVersion", "includeAnnotations"],
+            "properties": {
+              "baseRevisionNo": { "type": "integer", "minimum": 1 },
+              "promptVersion": { "type": "string" },
+              "includeAnnotations": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "outline_generation_state" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["aiRunId", "state", "message"],
+            "properties": {
+              "aiRunId": { "type": "string", "minLength": 1 },
+              "state": {
+                "enum": ["queued", "running", "succeeded", "failed", "cancelled"]
+              },
+              "message": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "outline_merge_ready" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["aiRunId", "candidateRevisionId", "conflictCount"],
+            "properties": {
+              "aiRunId": { "type": "string", "minLength": 1 },
+              "candidateRevisionId": { "type": "string", "minLength": 1 },
+              "conflictCount": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "outline_progress_updated" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["projectId", "nodeId", "completed"],
+            "properties": {
+              "projectId": { "type": "string", "minLength": 1 },
+              "nodeId": { "type": "string", "minLength": 1 },
+              "completed": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+# Streamlit 项目级配置。
+#
+# 放在项目根目录，`streamlit run app.py` 会自动读取（会覆盖 ~/.streamlit/config.toml）。
+# 目的：让启动命令在任何终端下都能一次跑通，不需要先手工回答首次运行的问题。
+#
+# 背景：Streamlit 1.65 首次运行会在终端里问一次邮箱，`conda run` 和双击 bat
+# 都没有可交互的标准输入，回车送不进去，进程就直接以
+# `conda run streamlit run app.py failed` 收场。
+
+[server]
+# 不自动拉起浏览器。WSL 里没有可用的图形浏览器，Windows 侧按提示自己开标签页。
+headless = true
+# 关掉首次运行的邮箱询问。与 headless 一起构成了"非交互也能启动"的两个条件。
+showEmailPrompt = false
+
+[browser]
+# 关掉遥测，顺带不再打印那条"Collecting usage statistics"的提示。
+gatherUsageStats = false
+
+[theme]
+# 设计 token 落到 Streamlit 原生主题：所有原生控件（按钮、复选、滑杆、页签、链接）
+# 用的是这一套值，而不是 Streamlit 的默认红。取值与 ui/theme.py 的 TOKENS 一致，
+# 对比度由 scripts/ui_browser_check.py 在真实渲染中校验。
+primaryColor = "#1F6E6A"
+backgroundColor = "#FCFCFA"
+secondaryBackgroundColor = "#F4F5F2"
+textColor = "#17191B"
+font = "sans serif"
+base = "light"

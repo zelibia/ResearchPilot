@@ -1,0 +1,70 @@
+# ResearchPilot AI v1.0 默认配置
+# 原则：原始数据只读；所有产物落到 outputs/ 与 logs/，可重建、可删除
+
+project:
+  name: ResearchPilot AI
+  version: 1.0.0
+
+paths:
+  # 既有科研工作区，只读引用，绝不写入
+  raw_sac_dir: /home/wannnlee/seismic/sac_data
+  legacy_project_dir: /home/wannnlee/seismic/ambient_noise_test
+  sac_bin: /home/wannnlee/seismic/sac_software/bin
+  outputs_dir: outputs
+  logs_dir: logs
+  db_path: outputs/researchpilot.db
+
+engine:
+  # primary: noisepy | legacy_bensen
+  primary: legacy_bensen
+  fallback: obspy
+  # 计算解释器：必须自带 obspy / scipy / matplotlib。
+  # 界面与数据库不在这个环境里运行。
+  python: /home/wannnlee/miniconda3/bin/python3
+  code_dir: /home/wannnlee/seismic/ambient_noise_test/code
+  runs_dir: outputs/runs
+  timeouts_s: {qc: 300, preprocess: 900, xcorr: 600, stack: 600}
+
+data:
+  stations:
+    - {network: IC, station: BJT, channel: BHZ, sample_rate: 20}
+    - {network: IC, station: SSE, channel: BHZ, sample_rate: 20}
+    - {network: IU, station: INCN, channel: BHZ, sample_rate: 40, location: "10"}
+  # baseline 窗口：30 天，三台全齐
+  default_window: {start: "2022-11-01", end: "2022-11-30"}
+  extendable_window: {start: "2022-10-09", end: "2023-01-10"}
+
+preprocess:
+  # ⚠ 这里写的是**声明顺序**，不是实际执行顺序。
+  # 既有脚本实际执行 5 步：detrend/taper → remove_response → resample
+  # → band-pass → temporal normalization，且**关闭谱白化**。
+  # M2-02A 不改算法顺序；实际步骤以产物 *_steps.csv 为准并写入 run.json。
+  # 差异以产物 *_steps.csv 与实际运行快照为准。
+  order: [demean, detrend, taper, remove_response, resample, bandpass, temporal_normalize, spectral_whitening]
+  spectral_whitening: false   # 第一版明确关闭：零延迟尖峰未定位
+  bandpass: {f_min: 0.02, f_max: 0.5}
+  remove_response:
+    pre_filt: [0.005, 0.006, 0.4, 0.45]
+  sample_rate_tolerance: 1.0e-6   # obspy 读 SAC 的 delta 是 float32，必须容差比较
+
+normalization:
+  mode: RAM                # none | RAM
+  window_seconds: [15, 25] # 原文 2.1 节时段归一化窗口
+
+stack:
+  methods: [sum, mean]
+  checkpoints_days: [1, 3, 7, 14, 30]
+
+qc:
+  min_completeness: 0.80   # 低于此值跳过并记日志，不删原始数据
+
+services:
+  openalex:
+    base_url: https://api.openalex.org
+    mailto: ""             # 填写联系方式以进入 polite pool
+  crossref:
+    base_url: https://api.crossref.org
+
+logging:
+  level: INFO
+  save_run_snapshot: true   # 每次运行把本配置快照写入 outputs/<run_id>/

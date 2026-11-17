@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# 本地密钥（一律不进仓库）
+.env
+.streamlit/secrets.toml
+
+# 运行时可重建的产物（演示数据库与上传的 PDF 例外：要一起发布）
+outputs/cache/
+outputs/runs/
+outputs/backups/
+outputs/projects/
+logs/
+
+# 大体量二进制
+*.SAC
+*.mseed
+*.sac
+.DS_Store
+Thumbs.db

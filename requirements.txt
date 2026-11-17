@@ -1,0 +1,23 @@
+# ResearchPilot AI v1.2 依赖
+#
+# 环境策略（任务书 v1.2 第 1 节）：
+#   不往 conda base 装东西，用独立环境，避免破坏已可用的 obspy 组合。
+#   base 现有：Python 3.14.6 / obspy 1.5.0 / numpy 2.5.1 / scipy 1.18.0
+
+# --- 云端部署必需（Streamlit Community Cloud 用 Python 3.11/3.12） ---
+streamlit>=1.65
+pymupdf>=1.24
+requests>=2.31
+pydantic>=2.5
+SQLAlchemy>=2.0,<2.1
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+httpx>=0.27
+jsonschema>=4.20
+
+# --- M2 地震计算引擎（接入时再启用） ---
+# obspy>=1.4
+# numpy>=1.26
+# scipy>=1.11
+# noisepy-seis        # 单独环境验证通过后再启用，不阻塞主线
