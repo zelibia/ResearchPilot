@@ -48,11 +48,11 @@ _HTML = """
   <div class="cg__viewport">
     <div class="cg__canvas" tabindex="0" aria-label="图谱空白区，右键可添加项目内文献">
       <section class="cg__group" data-group="method_source">
-        <h4>方法来源</h4><div class="cg__nodes"></div>
+        <h4>来源</h4><div class="cg__nodes"></div>
       </section>
       <div class="cg__center"><div class="cg__current"></div></div>
       <section class="cg__group" data-group="later_extension">
-        <h4>后续延伸</h4><div class="cg__nodes"></div>
+        <h4>推广</h4><div class="cg__nodes"></div>
       </section>
       <section class="cg__related" data-group="related">
         <h4>相关研究</h4><div class="cg__nodes"></div>
@@ -153,10 +153,10 @@ _CSS = """
 .cg__current small{display:block;opacity:.7;margin-bottom:6px}.cg__current b{font-size:13px;line-height:1.5}
 .cg__group.is-over,.cg__related.is-over{outline:2px solid #2A746D;outline-offset:4px;border-radius:7px}
 .cg__timeline{
-  position:relative;width:1100px;height:600px;transform-origin:0 0;
+  position:relative;width:1100px;height:660px;transform-origin:0 0;
   background:linear-gradient(to bottom,#FCFDFC 0,#FCFDFC 100%);
 }
-.cg__edges{position:absolute;inset:0;width:1100px;height:600px;overflow:visible;pointer-events:none}
+.cg__edges{position:absolute;inset:0;width:1100px;height:660px;overflow:visible;pointer-events:none}
 .cg__edges line{stroke:#AEBAB4;stroke-width:1.3}
 .cg__edges line.recommended{stroke:#AEBAB4;stroke-dasharray:5 4}
 .cg__edges marker path{fill:#8E9A94}
@@ -558,8 +558,13 @@ export default function(component) {
   });
 
   function drawTimeline() {
-    timelineSvg.querySelectorAll("line").forEach((line) => line.remove());
+    // 清掉上一轮的轴线与连线（保留 defs 里的箭头定义）
+    Array.from(timelineSvg.children).forEach((el) => {
+      if (el.tagName.toLowerCase() !== "defs") el.remove();
+    });
     timelineNodes.replaceChildren();
+
+    const SVGNS = "http://www.w3.org/2000/svg";
     const items = [{
       relation_id: `current:${current.id}`,
       paper_id: current.id,
@@ -573,40 +578,113 @@ export default function(component) {
       is_selected: false,
       current: true,
     }, ...allItems];
+
     const years = items
       .map((item) => Number.parseInt(item.year, 10))
       .filter((year) => Number.isFinite(year));
     const minYear = years.length ? Math.min(...years) : new Date().getFullYear();
     const maxYear = years.length ? Math.max(...years) : minYear;
     const span = Math.max(1, maxYear - minYear);
-    const laneY = {method_source: 72, current: 225, later_extension: 372, related: 500};
-    const lanes = {method_source: 0, current: 0, later_extension: 0, related: 0};
-    const positions = new Map();
-    for (const item of items) {
-      const parsed = Number.parseInt(item.year, 10);
-      const year = Number.isFinite(parsed) ? parsed : minYear;
-      const x = 88 + ((year - minYear) / span) * 780;
-      const lane = laneY[item.graph_group] ?? laneY.related;
-      const offset = lanes[item.graph_group] ?? 0;
-      lanes[item.graph_group] = offset + 1;
-      const y = lane + (offset % 3) * 62;
-      positions.set(item.relation_id, {x, y});
+
+    const WIDTH = 1100;
+    const LEFT = 56;
+    const PLOT = WIDTH - LEFT - 200;
+    const AXIS_Y = 300;
+    const xOf = (year) => LEFT + ((year - minYear) / span) * PLOT;
+
+    // ---- 时间轴：主线 + 年份刻度 + 年份标签
+    const axis = document.createElementNS(SVGNS, "line");
+    axis.setAttribute("x1", String(LEFT - 14));
+    axis.setAttribute("y1", String(AXIS_Y));
+    axis.setAttribute("x2", String(LEFT + PLOT + 14));
+    axis.setAttribute("y2", String(AXIS_Y));
+    axis.setAttribute("stroke", "#AEBAB4");
+    axis.setAttribute("stroke-width", "1.4");
+    timelineSvg.appendChild(axis);
+
+    const tickStep = span <= 8 ? 1 : Math.ceil(span / 9);
+    for (let year = minYear; year <= maxYear; year += tickStep) {
+      const x = xOf(year);
+      const tick = document.createElementNS(SVGNS, "line");
+      tick.setAttribute("x1", String(x));
+      tick.setAttribute("y1", String(AXIS_Y - 5));
+      tick.setAttribute("x2", String(x));
+      tick.setAttribute("y2", String(AXIS_Y + 5));
+      tick.setAttribute("stroke", "#AEBAB4");
+      timelineSvg.appendChild(tick);
+
+      const label = document.createElementNS(SVGNS, "text");
+      label.setAttribute("x", String(x));
+      label.setAttribute("y", String(AXIS_Y + 20));
+      label.setAttribute("text-anchor", "middle");
+      label.setAttribute("font-size", "11");
+      label.setAttribute("fill", "#8A9591");
+      label.textContent = String(year);
+      timelineSvg.appendChild(label);
     }
+
+    const axisTitle = document.createElementNS(SVGNS, "text");
+    axisTitle.setAttribute("x", String(LEFT - 14));
+    axisTitle.setAttribute("y", String(AXIS_Y - 12));
+    axisTitle.setAttribute("font-size", "11");
+    axisTitle.setAttribute("fill", "#8A9591");
+    axisTitle.textContent = "发表年份 →";
+    timelineSvg.appendChild(axisTitle);
+
+    // ---- 节点排布：来源在上，推广在下，同一年份自动加行避免重叠
+    const NODE_W = 214;
+    const NODE_H = 62;
+    const rows = {method_source: [], later_extension: [], related: [], current: []};
+    const bandTop = (group) =>
+      group === "method_source" ? 26
+        : group === "current" ? 246
+        : group === "related" ? 470 : 350;
+    const maxRows = (group) => (group === "method_source" || group === "later_extension" ? 3 : 2);
+
+    const positions = new Map();
+    const ordered = [...items].sort((a, b) => {
+      const ya = Number.parseInt(a.year, 10) || minYear;
+      const yb = Number.parseInt(b.year, 10) || minYear;
+      return ya - yb || String(a.title).localeCompare(String(b.title));
+    });
+    for (const item of ordered) {
+      const group = item.current ? "current" : (item.graph_group || "related");
+      const key = rows[group] ? group : "related";
+      const parsed = Number.parseInt(item.year, 10);
+      let x = xOf(Number.isFinite(parsed) ? parsed : minYear);
+      x = Math.max(LEFT - 10, Math.min(x - NODE_W / 2, WIDTH - NODE_W - 8));
+      const slotRows = rows[key];
+      let row = 0;
+      while (row < slotRows.length && slotRows[row].some((v) => Math.abs(v - x) < NODE_W - 24)) {
+        row += 1;
+      }
+      if (!slotRows[row]) slotRows[row] = [];
+      if (row >= maxRows(key)) {
+        row = slotRows.findIndex((r) => !r.some((v) => Math.abs(v - x) < NODE_W - 24));
+        if (row < 0) row = maxRows(key) - 1;
+      }
+      slotRows[row].push(x);
+      positions.set(item.relation_id, {x, y: bandTop(key) + row * (NODE_H + 8)});
+    }
+
+    // ---- 连线：当前论文 → 每条关系（带箭头）
     for (const item of allItems.filter((entry) => !entry.recommended)) {
       const from = positions.get(`current:${current.id}`);
       const to = positions.get(item.relation_id);
       if (!from || !to) continue;
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const line = document.createElementNS(SVGNS, "line");
       const outward = item.edge_from_current !== false;
-      line.setAttribute("x1", String(outward ? from.x + 105 : to.x + 105));
-      line.setAttribute("y1", String(outward ? from.y + 29 : to.y + 29));
-      line.setAttribute("x2", String(outward ? to.x + (to.x < from.x ? 105 : 0) : from.x + (from.x < to.x ? 105 : 0)));
-      line.setAttribute("y2", String(outward ? to.y + 29 : from.y + 29));
+      line.setAttribute("x1", String(outward ? from.x + 107 : to.x + 107));
+      line.setAttribute("y1", String(outward ? from.y + 31 : to.y + 31));
+      line.setAttribute("x2", String(outward ? to.x + 107 : from.x + 107));
+      line.setAttribute("y2", String(outward ? to.y + 31 : from.y + 31));
       line.setAttribute("marker-end", "url(#cg-arrow)");
       timelineSvg.appendChild(line);
     }
+
     for (const item of items) {
       const position = positions.get(item.relation_id);
+      if (!position) continue;
       const node = makeNode(item, true);
       if (item.current) node.classList.add("current");
       node.style.left = `${position.x}px`;
@@ -773,8 +851,8 @@ export default function(component) {
         ctx.font = "9px sans-serif"; ctx.fillText(meta, x + 10, y + 45);
       });
     }
-    drawColumn("method_source", 34, 118, "方法来源 / 前期工作");
-    drawColumn("later_extension", 876, 118, "后续延伸");
+    drawColumn("method_source", 34, 118, "来源 / 前期工作");
+    drawColumn("later_extension", 876, 118, "推广 / 后续延伸");
     const relatedY = 118 + maxRows * 78;
     ctx.fillStyle = "#66736D"; ctx.font = "600 12px sans-serif";
     ctx.fillText("相关研究", 34, relatedY - 14);
@@ -1028,8 +1106,8 @@ def _allowed_groups(relation: PaperRelation, current: Paper) -> list[str]:
 
 def _relation_label(relation: PaperRelation, group: str) -> str:
     labels = {
-        "method_source": "方法来源 / 前期工作",
-        "later_extension": "后续延伸",
+        "method_source": "来源 / 前期工作",
+        "later_extension": "推广",
         "related": "相关研究",
     }
     if group in labels:
@@ -1708,7 +1786,7 @@ def render(project: Project, current: Paper, relations: list[PaperRelation]) -> 
             show_rejected = bool(st.session_state.get(show_key, False))
     with toolbar[1]:
         layout_labels = {
-            "radial": "放射布局",
+            "radial": "来源与推广",
             "timeline": "时间轴布局",
         }
         selected_layout = st.selectbox(
